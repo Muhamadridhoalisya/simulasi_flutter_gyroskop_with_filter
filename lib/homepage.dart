@@ -13,9 +13,10 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  // List untuk menyimpan history data gyroscope
-  List<List<FlSpot>> gyroData = [[], [], []]; // x, y, z
-  final int maxDataPoints = 50; // Jumlah maksimum data yang ditampilkan
+  // List untuk menyimpan history data gyroscope (raw dan filtered)
+  List<List<FlSpot>> rawGyroData = [[], [], []]; // x, y, z raw data
+  List<List<FlSpot>> filteredGyroData = [[], [], []]; // x, y, z filtered data
+  final int maxDataPoints = 100; // Jumlah maksimum data yang ditampilkan
 
   @override
   void initState() {
@@ -38,21 +39,28 @@ class _MyHomePageState extends State<MyHomePage> {
 
     setState(() {
       // Mendapatkan timestamp yang diskalakan sebagai sumbu x (menggunakan index saja untuk kesederhanaan)
-      final now = gyroData[0].length.toDouble();
+      final now = rawGyroData[0].length.toDouble();
       
-      // Menambahkan data baru
-      gyroData[0].add(FlSpot(now, service.filteredGyroX));
-      gyroData[1].add(FlSpot(now, service.filteredGyroY));
-      gyroData[2].add(FlSpot(now, service.filteredGyroZ));
+      // Menambahkan data raw
+      rawGyroData[0].add(FlSpot(now, service.gyroX));
+      rawGyroData[1].add(FlSpot(now, service.gyroY));
+      rawGyroData[2].add(FlSpot(now, service.gyroZ));
+      
+      // Menambahkan data filtered
+      filteredGyroData[0].add(FlSpot(now, service.filteredGyroX));
+      filteredGyroData[1].add(FlSpot(now, service.filteredGyroY));
+      filteredGyroData[2].add(FlSpot(now, service.filteredGyroZ));
       
       // Membuang data lama jika melebihi batas maksimum
-      if (gyroData[0].length > maxDataPoints) {
+      if (rawGyroData[0].length > maxDataPoints) {
         for (int i = 0; i < 3; i++) {
-          gyroData[i].removeAt(0);
+          rawGyroData[i].removeAt(0);
+          filteredGyroData[i].removeAt(0);
           
           // Menggeser semua x value agar dimulai dari 0
-          for (int j = 0; j < gyroData[i].length; j++) {
-            gyroData[i][j] = FlSpot(j.toDouble(), gyroData[i][j].y);
+          for (int j = 0; j < rawGyroData[i].length; j++) {
+            rawGyroData[i][j] = FlSpot(j.toDouble(), rawGyroData[i][j].y);
+            filteredGyroData[i][j] = FlSpot(j.toDouble(), filteredGyroData[i][j].y);
           }
         }
       }
@@ -103,121 +111,141 @@ class _MyHomePageState extends State<MyHomePage> {
                   ),
                   const SizedBox(height: 20),
                   
-                  // Grafik Line Chart
-                  const Text('Gyroscope Data Chart:', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  // X-Axis Chart
+                  const Text('X-Axis Gyroscope Data:', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                   Card(
                     elevation: 4,
                     child: Padding(
                       padding: const EdgeInsets.all(16.0),
                       child: SizedBox(
-                        height: 300,
+                        height: 250,
                         child: LineChart(
-                          LineChartData(
-                            gridData: const FlGridData(show: true),
-                            titlesData: const FlTitlesData(
-                              leftTitles: AxisTitles(
-                                sideTitles: SideTitles(
-                                  showTitles: true,
-                                  reservedSize: 40,
-                                ),
-                              ),
-                              bottomTitles: AxisTitles(
-                                sideTitles: SideTitles(
-                                  showTitles: true,
-                                  reservedSize: 30,
-                                ),
-                              ),
-                              topTitles: AxisTitles(
-                                sideTitles: SideTitles(showTitles: false),
-                              ),
-                              rightTitles: AxisTitles(
-                                sideTitles: SideTitles(showTitles: false),
-                              ),
-                            ),
-                            borderData: FlBorderData(show: true),
-                            minX: 0,
-                            maxX: (maxDataPoints - 1).toDouble(),
-                            minY: -1,
-                            maxY: 1,
-                            lineBarsData: [
-                              // X Gyro
-                              LineChartBarData(
-                                spots: gyroData[0],
-                                isCurved: true,
-                                color: Colors.red,
-                                barWidth: 2,
-                                dotData: const FlDotData(show: false),
-                              ),
-                              // Y Gyro
-                              LineChartBarData(
-                                spots: gyroData[1],
-                                isCurved: true,
-                                color: Colors.green,
-                                barWidth: 2,
-                                dotData: const FlDotData(show: false),
-                              ),
-                              // Z Gyro
-                              LineChartBarData(
-                                spots: gyroData[2],
-                                isCurved: true,
-                                color: Colors.blue,
-                                barWidth: 2,
-                                dotData: const FlDotData(show: false),
-                              ),
-                            ],
-                          ),
+                          _buildLineChartData(0, 'X-Axis'),
                         ),
                       ),
                     ),
                   ),
                   
-                  // Legenda untuk grafik
+                  // X-Axis Legend
                   Padding(
                     padding: const EdgeInsets.symmetric(vertical: 8.0),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        _buildLegendItem('X-Axis', Colors.red),
+                        _buildLegendItem('Raw', Colors.red),
                         const SizedBox(width: 16),
-                        _buildLegendItem('Y-Axis', Colors.green),
-                        const SizedBox(width: 16),
-                        _buildLegendItem('Z-Axis', Colors.blue),
+                        _buildLegendItem('Filtered', Colors.redAccent.shade100),
                       ],
                     ),
                   ),
                   
                   const SizedBox(height: 20),
-                  const Text('Gyroscope Data (Raw):', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  
+                  // Y-Axis Chart
+                  const Text('Y-Axis Gyroscope Data:', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                   Card(
                     elevation: 4,
                     child: Padding(
                       padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('X: ${service.gyroX.toStringAsFixed(4)}'),
-                          Text('Y: ${service.gyroY.toStringAsFixed(4)}'),
-                          Text('Z: ${service.gyroZ.toStringAsFixed(4)}'),
-                        ],
+                      child: SizedBox(
+                        height: 250,
+                        child: LineChart(
+                          _buildLineChartData(1, 'Y-Axis'),
+                        ),
                       ),
                     ),
                   ),
+                  
+                  // Y-Axis Legend
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8.0),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        _buildLegendItem('Raw', Colors.green),
+                        const SizedBox(width: 16),
+                        _buildLegendItem('Filtered', Colors.green.shade200),
+                      ],
+                    ),
+                  ),
+                  
                   const SizedBox(height: 20),
-                  const Text('Gyroscope Data (Filtered):', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  
+                  // Z-Axis Chart
+                  const Text('Z-Axis Gyroscope Data:', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                   Card(
                     elevation: 4,
                     child: Padding(
                       padding: const EdgeInsets.all(16.0),
+                      child: SizedBox(
+                        height: 250,
+                        child: LineChart(
+                          _buildLineChartData(2, 'Z-Axis'),
+                        ),
+                      ),
+                    ),
+                  ),
+                  
+                  // Z-Axis Legend
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8.0),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        _buildLegendItem('Raw', Colors.blue),
+                        const SizedBox(width: 16),
+                        _buildLegendItem('Filtered', Colors.blue.shade200),
+                      ],
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 20),
+                  const Text('Current Gyroscope Data:', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  const Card(
+                    elevation: 4,
+                    child: Padding(
+                      padding: EdgeInsets.all(16.0),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('X: ${service.filteredGyroX.toStringAsFixed(4)}'),
-                          Text('Y: ${service.filteredGyroY.toStringAsFixed(4)}'),
-                          Text('Z: ${service.filteredGyroZ.toStringAsFixed(4)}'),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text('Axis', style: TextStyle(fontWeight: FontWeight.bold)),
+                              Text('Raw', style: TextStyle(fontWeight: FontWeight.bold)),
+                              Text('Filtered', style: TextStyle(fontWeight: FontWeight.bold)),
+                            ],
+                          ),
+                          Divider(),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text('X-Axis'),
+                              // Text('${service.gyroX.toStringAsFixed(4)}'),
+                              // Text('${service.filteredGyroX.toStringAsFixed(4)}'),
+                            ],
+                          ),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text('Y-Axis'),
+                              // Text('${service.gyroY.toStringAsFixed(4)}'),
+                              // Text('${service.filteredGyroY.toStringAsFixed(4)}'),
+                            ],
+                          ),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text('Z-Axis'),
+                              // Text('${service.gyroZ.toStringAsFixed(4)}'),
+                              // Text('${service.filteredGyroZ.toStringAsFixed(4)}'),
+                            ],
+                          ),
                         ],
                       ),
                     ),
                   ),
+                  
                   const SizedBox(height: 20),
                   Card(
                     elevation: 4,
@@ -233,26 +261,26 @@ class _MyHomePageState extends State<MyHomePage> {
                     ),
                   ),
                   const SizedBox(height: 20),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      ElevatedButton(
-                        onPressed: () {
-                          if (!service.isRunning) {
-                            service.startServer();
-                          }
-                        },
-                        child: const Text('Start Server'),
+                  Center(
+                    child: ElevatedButton(
+                      onPressed: () {
+                        if (service.isRunning) {
+                          service.stopServer();
+                        } else {
+                          service.startServer();
+                        }
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: service.isRunning 
+                            ? Colors.redAccent 
+                            : Colors.green,
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                       ),
-                      ElevatedButton(
-                        onPressed: () {
-                          if (service.isRunning) {
-                            service.stopServer();
-                          }
-                        },
-                        child: const Text('Stop Server'),
+                      child: Text(
+                        service.isRunning ? 'Stop Server' : 'Start Server',
+                        style: const TextStyle(fontSize: 16),
                       ),
-                    ],
+                    ),
                   ),
                 ],
               ),
@@ -260,6 +288,64 @@ class _MyHomePageState extends State<MyHomePage> {
           );
         },
       ),
+    );
+  }
+  
+  LineChartData _buildLineChartData(int axisIndex, String title) {
+    // Warna untuk setiap axis (raw dan filtered)
+    final List<Color> rawColors = [Colors.red, Colors.green, Colors.blue];
+    final List<Color> filteredColors = [Colors.redAccent.shade100, Colors.green.shade200, Colors.blue.shade200];
+    
+    return LineChartData(
+      gridData: const FlGridData(
+        show: true,
+        horizontalInterval: 50, // Interval 50 sesuai permintaan
+      ),
+      titlesData: FlTitlesData(
+        leftTitles: const AxisTitles(
+          sideTitles: SideTitles(
+            showTitles: true,
+            interval: 50, // Interval 50 sesuai permintaan
+            reservedSize: 40,
+          ),
+        ),
+        bottomTitles: AxisTitles(
+          axisNameWidget: Text(title),
+          sideTitles: const SideTitles(
+            showTitles: true,
+            reservedSize: 30,
+          ),
+        ),
+        topTitles: const AxisTitles(
+          sideTitles: SideTitles(showTitles: false),
+        ),
+        rightTitles: const AxisTitles(
+          sideTitles: SideTitles(showTitles: false),
+        ),
+      ),
+      borderData: FlBorderData(show: true),
+      minX: 0,
+      maxX: (maxDataPoints - 1).toDouble(),
+      minY: -300, // Range Y dari -300 sampai 300 sesuai permintaan
+      maxY: 300,
+      lineBarsData: [
+        // Raw data
+        LineChartBarData(
+          spots: rawGyroData[axisIndex],
+          isCurved: true,
+          color: rawColors[axisIndex],
+          barWidth: 2,
+          dotData: const FlDotData(show: false),
+        ),
+        // Filtered data
+        LineChartBarData(
+          spots: filteredGyroData[axisIndex],
+          isCurved: true,
+          color: filteredColors[axisIndex],
+          barWidth: 2,
+          dotData: const FlDotData(show: false),
+        ),
+      ],
     );
   }
   
