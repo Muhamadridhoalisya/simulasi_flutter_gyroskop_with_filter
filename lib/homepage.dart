@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:fl_chart/fl_chart.dart';
 import 'websocket_service.dart';
 
 class MyHomePage extends StatefulWidget {
@@ -14,14 +13,9 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
   // List untuk menyimpan history data gyroscope (raw dan filtered)
-  List<List<FlSpot>> rawGyroData = [[], [], []]; // x, y, z raw data
-  List<List<FlSpot>> filteredGyroData = [[], [], []]; // x, y, z filtered data
+  List<List<double>> rawGyroData = [[], [], []]; // x, y, z raw data
+  List<List<double>> filteredGyroData = [[], [], []]; // x, y, z filtered data
   final int maxDataPoints = 100; // Jumlah maksimum data yang ditampilkan
-  
-  // Tambahkan variabel bool untuk rendering chart
-  bool showXAxisChart = true;
-  bool showYAxisChart = true;
-  bool showZAxisChart = true;
 
   @override
   void initState() {
@@ -43,30 +37,21 @@ class _MyHomePageState extends State<MyHomePage> {
     if (!mounted) return;
 
     setState(() {
-      // Mendapatkan timestamp yang diskalakan sebagai sumbu x (menggunakan index saja untuk kesederhanaan)
-      final now = rawGyroData[0].length.toDouble();
-      
       // Menambahkan data raw
-      rawGyroData[0].add(FlSpot(now, service.gyroX));
-      rawGyroData[1].add(FlSpot(now, service.gyroY));
-      rawGyroData[2].add(FlSpot(now, service.gyroZ));
+      rawGyroData[0].add(service.gyroX);
+      rawGyroData[1].add(service.gyroY);
+      rawGyroData[2].add(service.gyroZ);
       
       // Menambahkan data filtered
-      filteredGyroData[0].add(FlSpot(now, service.filteredGyroX));
-      filteredGyroData[1].add(FlSpot(now, service.filteredGyroY));
-      filteredGyroData[2].add(FlSpot(now, service.filteredGyroZ));
+      filteredGyroData[0].add(service.filteredGyroX);
+      filteredGyroData[1].add(service.filteredGyroY);
+      filteredGyroData[2].add(service.filteredGyroZ);
       
       // Membuang data lama jika melebihi batas maksimum
       if (rawGyroData[0].length > maxDataPoints) {
         for (int i = 0; i < 3; i++) {
           rawGyroData[i].removeAt(0);
           filteredGyroData[i].removeAt(0);
-          
-          // Menggeser semua x value agar dimulai dari 0
-          for (int j = 0; j < rawGyroData[i].length; j++) {
-            rawGyroData[i][j] = FlSpot(j.toDouble(), rawGyroData[i][j].y);
-            filteredGyroData[i][j] = FlSpot(j.toDouble(), filteredGyroData[i][j].y);
-          }
         }
       }
     });
@@ -117,197 +102,116 @@ class _MyHomePageState extends State<MyHomePage> {
                   const SizedBox(height: 20),
                   
                   // X-Axis Chart
+                  const Text('X-Axis Gyroscope Data:', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                   Card(
                     elevation: 4,
                     child: Padding(
                       padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              const Text('X-Axis Gyroscope Data:', 
-                                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                              // Toggle switch for X-Axis chart
-                              Row(
-                                children: [
-                                  const Text('Show Chart:'),
-                                  Switch(
-                                    value: showXAxisChart,
-                                    onChanged: (value) {
-                                      setState(() {
-                                        showXAxisChart = value;
-                                      });
-                                    },
-                                  ),
-                                ],
-                              ),
-                            ],
+                      child: SizedBox(
+                        height: 250,
+                        child: CustomPaint(
+                          size: const Size(double.infinity, 250),
+                          painter: GyroscopeChartPainter(
+                            rawData: rawGyroData[0],
+                            filteredData: filteredGyroData[0],
+                            maxDataPoints: maxDataPoints,
+                            rawColor: Colors.red,
+                            filteredColor: Colors.redAccent.shade100,
+                            axisTitle: 'X-Axis',
                           ),
-                          if (showXAxisChart) 
-                            SizedBox(
-                              height: 250,
-                              child: LineChart(
-                                _buildLineChartData(0, 'X-Axis'),
-                              ),
-                            )
-                          else
-                            const Center(
-                              child: Padding(
-                                padding: EdgeInsets.symmetric(vertical: 100.0),
-                                child: Text('Chart rendering is disabled',
-                                  style: TextStyle(fontSize: 16, color: Colors.grey)),
-                              ),
-                            ),
-                        ],
+                        ),
                       ),
                     ),
                   ),
                   
                   // X-Axis Legend
-                  if (showXAxisChart)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 8.0),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          _buildLegendItem('Raw', Colors.red),
-                          const SizedBox(width: 16),
-                          _buildLegendItem('Filtered', Colors.redAccent.shade100),
-                        ],
-                      ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8.0),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        _buildLegendItem('Raw', Colors.red),
+                        const SizedBox(width: 16),
+                        _buildLegendItem('Filtered', Colors.redAccent.shade100),
+                      ],
                     ),
+                  ),
                   
                   const SizedBox(height: 20),
                   
                   // Y-Axis Chart
+                  const Text('Y-Axis Gyroscope Data:', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                   Card(
                     elevation: 4,
                     child: Padding(
                       padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              const Text('Y-Axis Gyroscope Data:', 
-                                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                              // Toggle switch for Y-Axis chart
-                              Row(
-                                children: [
-                                  const Text('Show Chart:'),
-                                  Switch(
-                                    value: showYAxisChart,
-                                    onChanged: (value) {
-                                      setState(() {
-                                        showYAxisChart = value;
-                                      });
-                                    },
-                                  ),
-                                ],
-                              ),
-                            ],
+                      child: SizedBox(
+                        height: 250,
+                        child: CustomPaint(
+                          size: const Size(double.infinity, 250),
+                          painter: GyroscopeChartPainter(
+                            rawData: rawGyroData[1],
+                            filteredData: filteredGyroData[1],
+                            maxDataPoints: maxDataPoints,
+                            rawColor: Colors.green,
+                            filteredColor: Colors.green.shade200,
+                            axisTitle: 'Y-Axis',
                           ),
-                          if (showYAxisChart) 
-                            SizedBox(
-                              height: 250,
-                              child: LineChart(
-                                _buildLineChartData(1, 'Y-Axis'),
-                              ),
-                            )
-                          else
-                            const Center(
-                              child: Padding(
-                                padding: EdgeInsets.symmetric(vertical: 100.0),
-                                child: Text('Chart rendering is disabled',
-                                  style: TextStyle(fontSize: 16, color: Colors.grey)),
-                              ),
-                            ),
-                        ],
+                        ),
                       ),
                     ),
                   ),
                   
                   // Y-Axis Legend
-                  if (showYAxisChart)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 8.0),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          _buildLegendItem('Raw', Colors.green),
-                          const SizedBox(width: 16),
-                          _buildLegendItem('Filtered', Colors.green.shade200),
-                        ],
-                      ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8.0),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        _buildLegendItem('Raw', Colors.green),
+                        const SizedBox(width: 16),
+                        _buildLegendItem('Filtered', Colors.green.shade200),
+                      ],
                     ),
+                  ),
                   
                   const SizedBox(height: 20),
                   
                   // Z-Axis Chart
+                  const Text('Z-Axis Gyroscope Data:', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                   Card(
                     elevation: 4,
                     child: Padding(
                       padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              const Text('Z-Axis Gyroscope Data:', 
-                                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                              // Toggle switch for Z-Axis chart
-                              Row(
-                                children: [
-                                  const Text('Show Chart:'),
-                                  Switch(
-                                    value: showZAxisChart,
-                                    onChanged: (value) {
-                                      setState(() {
-                                        showZAxisChart = value;
-                                      });
-                                    },
-                                  ),
-                                ],
-                              ),
-                            ],
+                      child: SizedBox(
+                        height: 250,
+                        child: CustomPaint(
+                          size: const Size(double.infinity, 250),
+                          painter: GyroscopeChartPainter(
+                            rawData: rawGyroData[2],
+                            filteredData: filteredGyroData[2],
+                            maxDataPoints: maxDataPoints,
+                            rawColor: Colors.blue,
+                            filteredColor: Colors.blue.shade200,
+                            axisTitle: 'Z-Axis',
                           ),
-                          if (showZAxisChart) 
-                            SizedBox(
-                              height: 250,
-                              child: LineChart(
-                                _buildLineChartData(2, 'Z-Axis'),
-                              ),
-                            )
-                          else
-                            const Center(
-                              child: Padding(
-                                padding: EdgeInsets.symmetric(vertical: 100.0),
-                                child: Text('Chart rendering is disabled',
-                                  style: TextStyle(fontSize: 16, color: Colors.grey)),
-                              ),
-                            ),
-                        ],
+                        ),
                       ),
                     ),
                   ),
                   
                   // Z-Axis Legend
-                  if (showZAxisChart)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 8.0),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          _buildLegendItem('Raw', Colors.blue),
-                          const SizedBox(width: 16),
-                          _buildLegendItem('Filtered', Colors.blue.shade200),
-                        ],
-                      ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8.0),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        _buildLegendItem('Raw', Colors.blue),
+                        const SizedBox(width: 16),
+                        _buildLegendItem('Filtered', Colors.blue.shade200),
+                      ],
                     ),
+                  ),
                   
                   const SizedBox(height: 20),
                   const Text('Current Gyroscope Data:', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
@@ -392,96 +296,12 @@ class _MyHomePageState extends State<MyHomePage> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 20),
-                  // Tambahkan tombol untuk toggle semua grafik
-                  Center(
-                    child: ElevatedButton(
-                      onPressed: () {
-                        setState(() {
-                          // Jika semua grafik saat ini ditampilkan, matikan semua. Jika tidak, nyalakan semua
-                          bool newState = !(showXAxisChart && showYAxisChart && showZAxisChart);
-                          showXAxisChart = newState;
-                          showYAxisChart = newState;
-                          showZAxisChart = newState;
-                        });
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.blueGrey,
-                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                      ),
-                      child: Text(
-                        (showXAxisChart && showYAxisChart && showZAxisChart) 
-                            ? 'Disable All Charts' 
-                            : 'Enable All Charts',
-                        style: const TextStyle(fontSize: 16),
-                      ),
-                    ),
-                  ),
                 ],
               ),
             ),
           );
         },
       ),
-    );
-  }
-  
-  LineChartData _buildLineChartData(int axisIndex, String title) {
-    // Warna untuk setiap axis (raw dan filtered)
-    final List<Color> rawColors = [Colors.red, Colors.green, Colors.blue];
-    final List<Color> filteredColors = [Colors.redAccent.shade100, Colors.green.shade200, Colors.blue.shade200];
-    
-    return LineChartData(
-      gridData: const FlGridData(
-        show: false,
-        horizontalInterval: 50, // Interval 50 sesuai permintaan
-      ),
-      titlesData: FlTitlesData(
-        leftTitles: const AxisTitles(
-          sideTitles: SideTitles(
-            showTitles: true,
-            interval: 50, // Interval 50 sesuai permintaan
-            reservedSize: 40,
-          ),
-        ),
-        bottomTitles: AxisTitles(
-          axisNameWidget: Text(title),
-          sideTitles: const SideTitles(
-            showTitles: true,
-            reservedSize: 30,
-          ),
-        ),
-        topTitles: const AxisTitles(
-          sideTitles: SideTitles(showTitles: false),
-        ),
-        rightTitles: const AxisTitles(
-          sideTitles: SideTitles(showTitles: false),
-        ),
-      ),
-      borderData: FlBorderData(show: true),
-      minX: 0,
-      maxX: (maxDataPoints - 1).toDouble(),
-      minY: -300, // Range Y dari -300 sampai 300 sesuai permintaan
-      maxY: 300,
-      lineBarsData: [
-        // Raw data
-        LineChartBarData(
-          spots: rawGyroData[axisIndex],
-          isCurved: true,
-          color: rawColors[axisIndex],
-          barWidth: 2,
-          dotData: const FlDotData(show: false),
-        ),
-        // Filtered data
-        LineChartBarData(
-          spots: filteredGyroData[axisIndex],
-          isCurved: true,
-          color: filteredColors[axisIndex],
-          barWidth: 2,
-          dotData: const FlDotData(show: false),
-          dashArray: [8,8],
-        ),
-      ],
     );
   }
   
@@ -500,5 +320,216 @@ class _MyHomePageState extends State<MyHomePage> {
         Text(label),
       ],
     );
+  }
+}
+
+class GyroscopeChartPainter extends CustomPainter {
+  final List<double> rawData;
+  final List<double> filteredData;
+  final int maxDataPoints;
+  final Color rawColor;
+  final Color filteredColor;
+  final String axisTitle;
+  
+  // Constants for chart layout
+  final double _padding = 40.0;
+  final double _yAxisWidth = 50.0;
+  final double _xAxisHeight = 40.0;
+  final double _minY = -300.0;
+  final double _maxY = 300.0;
+  final double _gridInterval = 50.0;
+  
+  GyroscopeChartPainter({
+    required this.rawData,
+    required this.filteredData, 
+    required this.maxDataPoints,
+    required this.rawColor,
+    required this.filteredColor,
+    required this.axisTitle,
+  });
+  
+  @override
+  void paint(Canvas canvas, Size size) {
+    final chartRect = Rect.fromLTWH(
+      _padding + _yAxisWidth, 
+      _padding, 
+      size.width - _padding * 2 - _yAxisWidth, 
+      size.height - _padding * 2 - _xAxisHeight
+    );
+    
+    _drawBackground(canvas, chartRect);
+    _drawYAxis(canvas, chartRect);
+    _drawXAxis(canvas, chartRect);
+    
+    if (rawData.isNotEmpty) {
+      _drawDataSeries(canvas, chartRect, rawData, rawColor);
+    }
+    
+    if (filteredData.isNotEmpty) {
+      _drawDataSeries(canvas, chartRect, filteredData, filteredColor, isDashed: true);
+    }
+  }
+  
+  void _drawBackground(Canvas canvas, Rect chartRect) {
+    // Draw chart background
+    final bgPaint = Paint()
+      ..color = Colors.grey.shade50
+      ..style = PaintingStyle.fill;
+    
+    final borderPaint = Paint()
+      ..color = Colors.grey.shade300
+      ..style = PaintingStyle.stroke;
+    
+    canvas.drawRect(chartRect, bgPaint);
+    canvas.drawRect(chartRect, borderPaint);
+    
+    // Draw horizontal grid lines
+    final gridPaint = Paint()
+      ..color = Colors.grey.shade200
+      ..style = PaintingStyle.stroke;
+    
+    final int totalGridLines = ((_maxY - _minY) / _gridInterval).ceil();
+    final double yRange = _maxY - _minY;
+    
+    for (int i = 0; i <= totalGridLines; i++) {
+      final double y = _minY + i * _gridInterval;
+      final double yPos = chartRect.bottom - ((y - _minY) / yRange * chartRect.height);
+      
+      if (y >= _minY && y <= _maxY) {
+        canvas.drawLine(
+          Offset(chartRect.left, yPos),
+          Offset(chartRect.right, yPos),
+          gridPaint,
+        );
+      }
+    }
+  }
+  
+  void _drawYAxis(Canvas canvas, Rect chartRect) {
+    const textStyle = TextStyle(
+      color: Colors.black87,
+      fontSize: 12,
+    );
+    final textPainter = TextPainter(
+      textDirection: TextDirection.ltr,
+    );
+    
+    // Draw Y-axis labels
+    final int totalLabels = ((_maxY - _minY) / _gridInterval).ceil();
+    final double yRange = _maxY - _minY;
+    
+    for (int i = 0; i <= totalLabels; i++) {
+      final double y = _minY + i * _gridInterval;
+      final double yPos = chartRect.bottom - ((y - _minY) / yRange * chartRect.height);
+      
+      if (y >= _minY && y <= _maxY) {
+        textPainter.text = TextSpan(
+          text: y.toInt().toString(),
+          style: textStyle,
+        );
+        
+        textPainter.layout();
+        textPainter.paint(
+          canvas,
+          Offset(chartRect.left - textPainter.width - 8, yPos - textPainter.height / 2),
+        );
+      }
+    }
+  }
+  
+  void _drawXAxis(Canvas canvas, Rect chartRect) {
+    const textStyle = TextStyle(
+      color: Colors.black87,
+      fontSize: 12,
+    );
+    final textPainter = TextPainter(
+      textDirection: TextDirection.ltr,
+    );
+    
+    // Draw X-axis title
+    textPainter.text = TextSpan(
+      text: axisTitle,
+      style: textStyle.copyWith(fontWeight: FontWeight.bold),
+    );
+    
+    textPainter.layout();
+    textPainter.paint(
+      canvas,
+      Offset(
+        chartRect.center.dx - textPainter.width / 2,
+        chartRect.bottom + 20,
+      ),
+    );
+  }
+  
+  void _drawDataSeries(Canvas canvas, Rect chartRect, List<double> data, Color color, {bool isDashed = false}) {
+    if (data.isEmpty) return;
+    
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.0;
+    
+    final path = Path();
+    final double yRange = _maxY - _minY;
+    
+    // Start at the first data point
+    if (data.isNotEmpty) {
+      final double x = chartRect.left;
+      final double normalizedY = (data[0] - _minY) / yRange;
+      final double y = chartRect.bottom - normalizedY * chartRect.height;
+      path.moveTo(x, y);
+    }
+    
+    // Add all points to the path
+    for (int i = 1; i < data.length; i++) {
+      final double x = chartRect.left + (i / (maxDataPoints - 1)) * chartRect.width;
+      final double normalizedY = (data[i] - _minY) / yRange;
+      final double y = chartRect.bottom - normalizedY * chartRect.height;
+      
+      // Clamp Y to the chart boundaries
+      final double clampedY = y.clamp(chartRect.top, chartRect.bottom);
+      path.lineTo(x, clampedY);
+    }
+    
+    // Draw the line
+    if (isDashed) {
+      // Draw dashed line
+      final dashPath = Path();
+      const dashWidth = 4.0;
+      const gapWidth = 4.0;
+      
+      var dashPathMetrics = path.computeMetrics().toList();
+      for (var pathMetric in dashPathMetrics) {
+        var distance = 0.0;
+        var isDraw = true;
+        while (distance < pathMetric.length) {
+          var length = isDraw ? dashWidth : gapWidth;
+          if (distance + length > pathMetric.length) {
+            length = pathMetric.length - distance;
+          }
+          
+          if (isDraw) {
+            dashPath.addPath(
+              pathMetric.extractPath(distance, distance + length),
+              Offset.zero,
+            );
+          }
+          
+          distance += length;
+          isDraw = !isDraw;
+        }
+      }
+      
+      canvas.drawPath(dashPath, paint);
+    } else {
+      canvas.drawPath(path, paint);
+    }
+  }
+  
+  @override
+  bool shouldRepaint(GyroscopeChartPainter oldDelegate) {
+    return oldDelegate.rawData != rawData || 
+           oldDelegate.filteredData != filteredData;
   }
 }
