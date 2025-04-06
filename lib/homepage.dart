@@ -33,35 +33,44 @@ class _MyHomePageState extends State<MyHomePage> {
     });
   }
 
+  List<DateTime> timestamps = [];
+
   void updateChartData(WebSocketService service) {
     // Hanya update chart jika widget masih mounted
     if (!mounted) return;
 
     setState(() {
       // Mendapatkan timestamp yang diskalakan sebagai sumbu x (menggunakan index saja untuk kesederhanaan)
-      final now = rawGyroData[0].length.toDouble();
+      // final now = rawGyroData[0].length.toDouble();
+      final currentTime = DateTime.now();
+      timestamps.add(currentTime);
       
       // Menambahkan data raw
-      rawGyroData[0].add(FlSpot(now, service.gyroX));
-      rawGyroData[1].add(FlSpot(now, service.gyroY));
-      rawGyroData[2].add(FlSpot(now, service.gyroZ));
+      rawGyroData[0].add(FlSpot(timestamps.length.toDouble(), service.gyroX));
+      rawGyroData[1].add(FlSpot(timestamps.length.toDouble(), service.gyroY));
+      rawGyroData[2].add(FlSpot(timestamps.length.toDouble(), service.gyroZ));
       
       // Menambahkan data filtered
-      filteredGyroData[0].add(FlSpot(now, service.filteredGyroX));
-      filteredGyroData[1].add(FlSpot(now, service.filteredGyroY));
-      filteredGyroData[2].add(FlSpot(now, service.filteredGyroZ));
+      filteredGyroData[0].add(FlSpot(timestamps.length.toDouble(), service.filteredGyroX));
+      filteredGyroData[1].add(FlSpot(timestamps.length.toDouble(), service.filteredGyroY));
+      filteredGyroData[2].add(FlSpot(timestamps.length.toDouble(), service.filteredGyroZ));
       
       // Membuang data lama jika melebihi batas maksimum
       if (rawGyroData[0].length > maxDataPoints) {
         for (int i = 0; i < 3; i++) {
           rawGyroData[i].removeAt(0);
           filteredGyroData[i].removeAt(0);
-          
-          // Menggeser semua x value agar dimulai dari 0
-          for (int j = 0; j < rawGyroData[i].length; j++) {
-            rawGyroData[i][j] = FlSpot(j.toDouble(), rawGyroData[i][j].y);
-            filteredGyroData[i][j] = FlSpot(j.toDouble(), filteredGyroData[i][j].y);
-          }
+        }
+        timestamps.removeAt(0);
+        
+        // Perbarui posisi X untuk semua data
+        for (int j = 0; j < rawGyroData[0].length; j++) {
+          rawGyroData[0][j] = FlSpot(j.toDouble(), rawGyroData[0][j].y);
+          rawGyroData[1][j] = FlSpot(j.toDouble(), rawGyroData[1][j].y);
+          rawGyroData[2][j] = FlSpot(j.toDouble(), rawGyroData[2][j].y);
+          filteredGyroData[0][j] = FlSpot(j.toDouble(), filteredGyroData[0][j].y);
+          filteredGyroData[1][j] = FlSpot(j.toDouble(), filteredGyroData[1][j].y);
+          filteredGyroData[2][j] = FlSpot(j.toDouble(), filteredGyroData[2][j].y);
         }
       }
     });
@@ -311,9 +320,24 @@ class _MyHomePageState extends State<MyHomePage> {
         ),
         bottomTitles: AxisTitles(
           axisNameWidget: Text(title),
-          sideTitles: const SideTitles(
+          sideTitles: SideTitles(
             showTitles: true,
             reservedSize: 30,
+            getTitlesWidget: (value, meta) {
+              // Cek apakah indeks valid dan ada timestamp untuk indeks tersebut
+              if (value >= 0 && value < timestamps.length && value % 20 == 0) {
+                // Hanya tampilkan label setiap 20 data untuk mencegah terlalu padat
+                final time = timestamps[value.toInt()];
+                return Padding(
+                  padding: const EdgeInsets.only(top: 8.0),
+                  child: Text(
+                    '${time.hour}:${time.minute.toString().padLeft(2, '0')}:${time.second.toString().padLeft(2, '0')}',
+                    style: const TextStyle(fontSize: 10),
+                  ),
+                );
+              }
+              return const SizedBox.shrink(); // Tidak menampilkan label untuk semua titik
+            },
           ),
         ),
         topTitles: const AxisTitles(
