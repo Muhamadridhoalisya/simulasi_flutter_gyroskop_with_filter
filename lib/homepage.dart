@@ -293,12 +293,12 @@ class _MyHomePageState extends State<MyHomePage> {
   
   LineChartData _buildLineChartData(int axisIndex, String title) {
     // Warna untuk setiap axis (raw dan filtered)
-    final List<Color> rawColors = [Colors.red, Colors.green, Colors.blue];
-    final List<Color> filteredColors = [Colors.redAccent.shade100, Colors.green.shade200, Colors.blue.shade200];
+    final List<Color> rawColors = [Colors.red, Colors.purple, Colors.blue];
+    final List<Color> filteredColors = [Colors.blue, Colors.green, Colors.orange];
     
     return LineChartData(
       gridData: const FlGridData(
-        show: true,
+        show: false,
         horizontalInterval: 50, // Interval 50 sesuai permintaan
       ),
       titlesData: FlTitlesData(
@@ -344,6 +344,7 @@ class _MyHomePageState extends State<MyHomePage> {
           color: filteredColors[axisIndex],
           barWidth: 2,
           dotData: const FlDotData(show: false),
+          dashArray: [8,8],
         ),
       ],
     );
