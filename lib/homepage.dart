@@ -17,6 +17,11 @@ class _MyHomePageState extends State<MyHomePage> {
   List<List<FlSpot>> rawGyroData = [[], [], []]; // x, y, z raw data
   List<List<FlSpot>> filteredGyroData = [[], [], []]; // x, y, z filtered data
   final int maxDataPoints = 100; // Jumlah maksimum data yang ditampilkan
+  
+  // Tambahkan variabel bool untuk rendering chart
+  bool showXAxisChart = true;
+  bool showYAxisChart = true;
+  bool showZAxisChart = true;
 
   @override
   void initState() {
@@ -33,44 +38,35 @@ class _MyHomePageState extends State<MyHomePage> {
     });
   }
 
-  List<DateTime> timestamps = [];
-
   void updateChartData(WebSocketService service) {
     // Hanya update chart jika widget masih mounted
     if (!mounted) return;
 
     setState(() {
       // Mendapatkan timestamp yang diskalakan sebagai sumbu x (menggunakan index saja untuk kesederhanaan)
-      // final now = rawGyroData[0].length.toDouble();
-      final currentTime = DateTime.now();
-      timestamps.add(currentTime);
+      final now = rawGyroData[0].length.toDouble();
       
       // Menambahkan data raw
-      rawGyroData[0].add(FlSpot(timestamps.length.toDouble(), service.gyroX));
-      rawGyroData[1].add(FlSpot(timestamps.length.toDouble(), service.gyroY));
-      rawGyroData[2].add(FlSpot(timestamps.length.toDouble(), service.gyroZ));
+      rawGyroData[0].add(FlSpot(now, service.gyroX));
+      rawGyroData[1].add(FlSpot(now, service.gyroY));
+      rawGyroData[2].add(FlSpot(now, service.gyroZ));
       
       // Menambahkan data filtered
-      filteredGyroData[0].add(FlSpot(timestamps.length.toDouble(), service.filteredGyroX));
-      filteredGyroData[1].add(FlSpot(timestamps.length.toDouble(), service.filteredGyroY));
-      filteredGyroData[2].add(FlSpot(timestamps.length.toDouble(), service.filteredGyroZ));
+      filteredGyroData[0].add(FlSpot(now, service.filteredGyroX));
+      filteredGyroData[1].add(FlSpot(now, service.filteredGyroY));
+      filteredGyroData[2].add(FlSpot(now, service.filteredGyroZ));
       
       // Membuang data lama jika melebihi batas maksimum
       if (rawGyroData[0].length > maxDataPoints) {
         for (int i = 0; i < 3; i++) {
           rawGyroData[i].removeAt(0);
           filteredGyroData[i].removeAt(0);
-        }
-        timestamps.removeAt(0);
-        
-        // Perbarui posisi X untuk semua data
-        for (int j = 0; j < rawGyroData[0].length; j++) {
-          rawGyroData[0][j] = FlSpot(j.toDouble(), rawGyroData[0][j].y);
-          rawGyroData[1][j] = FlSpot(j.toDouble(), rawGyroData[1][j].y);
-          rawGyroData[2][j] = FlSpot(j.toDouble(), rawGyroData[2][j].y);
-          filteredGyroData[0][j] = FlSpot(j.toDouble(), filteredGyroData[0][j].y);
-          filteredGyroData[1][j] = FlSpot(j.toDouble(), filteredGyroData[1][j].y);
-          filteredGyroData[2][j] = FlSpot(j.toDouble(), filteredGyroData[2][j].y);
+          
+          // Menggeser semua x value agar dimulai dari 0
+          for (int j = 0; j < rawGyroData[i].length; j++) {
+            rawGyroData[i][j] = FlSpot(j.toDouble(), rawGyroData[i][j].y);
+            filteredGyroData[i][j] = FlSpot(j.toDouble(), filteredGyroData[i][j].y);
+          }
         }
       }
     });
@@ -121,103 +117,208 @@ class _MyHomePageState extends State<MyHomePage> {
                   const SizedBox(height: 20),
                   
                   // X-Axis Chart
-                  const Text('X-Axis Gyroscope Data:', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                   Card(
                     elevation: 4,
                     child: Padding(
                       padding: const EdgeInsets.all(16.0),
-                      child: SizedBox(
-                        height: 250,
-                        child: LineChart(
-                          _buildLineChartData(0, 'X-Axis'),
-                        ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text('X-Axis Gyroscope Data:', 
+                                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                              // Toggle switch for X-Axis chart
+                              Row(
+                                children: [
+                                  const Text('Show Chart:'),
+                                  Switch(
+                                    value: showXAxisChart,
+                                    onChanged: (value) {
+                                      setState(() {
+                                        showXAxisChart = value;
+                                      });
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                          if (showXAxisChart) 
+                            SizedBox(
+                              height: 250,
+                              child: LineChart(
+                                _buildLineChartData(0, 'X-Axis'),
+                              ),
+                            )
+                          else
+                            const Center(
+                              child: Padding(
+                                padding: EdgeInsets.symmetric(vertical: 100.0),
+                                child: Text('Chart rendering is disabled',
+                                  style: TextStyle(fontSize: 16, color: Colors.grey)),
+                              ),
+                            ),
+                        ],
                       ),
                     ),
                   ),
                   
                   // X-Axis Legend
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8.0),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        _buildLegendItem('Raw', Colors.red),
-                        const SizedBox(width: 16),
-                        _buildLegendItem('Filtered', Colors.redAccent.shade100),
-                      ],
+                  if (showXAxisChart)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8.0),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          _buildLegendItem('Raw', Colors.red),
+                          const SizedBox(width: 16),
+                          _buildLegendItem('Filtered', Colors.redAccent.shade100),
+                        ],
+                      ),
                     ),
-                  ),
                   
                   const SizedBox(height: 20),
                   
                   // Y-Axis Chart
-                  const Text('Y-Axis Gyroscope Data:', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                   Card(
                     elevation: 4,
                     child: Padding(
                       padding: const EdgeInsets.all(16.0),
-                      child: SizedBox(
-                        height: 250,
-                        child: LineChart(
-                          _buildLineChartData(1, 'Y-Axis'),
-                        ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text('Y-Axis Gyroscope Data:', 
+                                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                              // Toggle switch for Y-Axis chart
+                              Row(
+                                children: [
+                                  const Text('Show Chart:'),
+                                  Switch(
+                                    value: showYAxisChart,
+                                    onChanged: (value) {
+                                      setState(() {
+                                        showYAxisChart = value;
+                                      });
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                          if (showYAxisChart) 
+                            SizedBox(
+                              height: 250,
+                              child: LineChart(
+                                _buildLineChartData(1, 'Y-Axis'),
+                              ),
+                            )
+                          else
+                            const Center(
+                              child: Padding(
+                                padding: EdgeInsets.symmetric(vertical: 100.0),
+                                child: Text('Chart rendering is disabled',
+                                  style: TextStyle(fontSize: 16, color: Colors.grey)),
+                              ),
+                            ),
+                        ],
                       ),
                     ),
                   ),
                   
                   // Y-Axis Legend
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8.0),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        _buildLegendItem('Raw', Colors.green),
-                        const SizedBox(width: 16),
-                        _buildLegendItem('Filtered', Colors.green.shade200),
-                      ],
+                  if (showYAxisChart)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8.0),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          _buildLegendItem('Raw', Colors.green),
+                          const SizedBox(width: 16),
+                          _buildLegendItem('Filtered', Colors.green.shade200),
+                        ],
+                      ),
                     ),
-                  ),
                   
                   const SizedBox(height: 20),
                   
                   // Z-Axis Chart
-                  const Text('Z-Axis Gyroscope Data:', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                   Card(
                     elevation: 4,
                     child: Padding(
                       padding: const EdgeInsets.all(16.0),
-                      child: SizedBox(
-                        height: 250,
-                        child: LineChart(
-                          _buildLineChartData(2, 'Z-Axis'),
-                        ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text('Z-Axis Gyroscope Data:', 
+                                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                              // Toggle switch for Z-Axis chart
+                              Row(
+                                children: [
+                                  const Text('Show Chart:'),
+                                  Switch(
+                                    value: showZAxisChart,
+                                    onChanged: (value) {
+                                      setState(() {
+                                        showZAxisChart = value;
+                                      });
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                          if (showZAxisChart) 
+                            SizedBox(
+                              height: 250,
+                              child: LineChart(
+                                _buildLineChartData(2, 'Z-Axis'),
+                              ),
+                            )
+                          else
+                            const Center(
+                              child: Padding(
+                                padding: EdgeInsets.symmetric(vertical: 100.0),
+                                child: Text('Chart rendering is disabled',
+                                  style: TextStyle(fontSize: 16, color: Colors.grey)),
+                              ),
+                            ),
+                        ],
                       ),
                     ),
                   ),
                   
                   // Z-Axis Legend
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8.0),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        _buildLegendItem('Raw', Colors.blue),
-                        const SizedBox(width: 16),
-                        _buildLegendItem('Filtered', Colors.blue.shade200),
-                      ],
+                  if (showZAxisChart)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8.0),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          _buildLegendItem('Raw', Colors.blue),
+                          const SizedBox(width: 16),
+                          _buildLegendItem('Filtered', Colors.blue.shade200),
+                        ],
+                      ),
                     ),
-                  ),
                   
                   const SizedBox(height: 20),
                   const Text('Current Gyroscope Data:', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                  const Card(
+                  Card(
                     elevation: 4,
                     child: Padding(
-                      padding: EdgeInsets.all(16.0),
+                      padding: const EdgeInsets.all(16.0),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Row(
+                          const Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               Text('Axis', style: TextStyle(fontWeight: FontWeight.bold)),
@@ -225,29 +326,29 @@ class _MyHomePageState extends State<MyHomePage> {
                               Text('Filtered', style: TextStyle(fontWeight: FontWeight.bold)),
                             ],
                           ),
-                          Divider(),
+                          const Divider(),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text('X-Axis'),
-                              // Text('${service.gyroX.toStringAsFixed(4)}'),
-                              // Text('${service.filteredGyroX.toStringAsFixed(4)}'),
+                              const Text('X-Axis'),
+                              Text(service.gyroX.toStringAsFixed(4)),
+                              Text(service.filteredGyroX.toStringAsFixed(4)),
                             ],
                           ),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text('Y-Axis'),
-                              // Text('${service.gyroY.toStringAsFixed(4)}'),
-                              // Text('${service.filteredGyroY.toStringAsFixed(4)}'),
+                              const Text('Y-Axis'),
+                              Text(service.gyroY.toStringAsFixed(4)),
+                              Text(service.filteredGyroY.toStringAsFixed(4)),
                             ],
                           ),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text('Z-Axis'),
-                              // Text('${service.gyroZ.toStringAsFixed(4)}'),
-                              // Text('${service.filteredGyroZ.toStringAsFixed(4)}'),
+                              const Text('Z-Axis'),
+                              Text(service.gyroZ.toStringAsFixed(4)),
+                              Text(service.filteredGyroZ.toStringAsFixed(4)),
                             ],
                           ),
                         ],
@@ -291,6 +392,31 @@ class _MyHomePageState extends State<MyHomePage> {
                       ),
                     ),
                   ),
+                  const SizedBox(height: 20),
+                  // Tambahkan tombol untuk toggle semua grafik
+                  Center(
+                    child: ElevatedButton(
+                      onPressed: () {
+                        setState(() {
+                          // Jika semua grafik saat ini ditampilkan, matikan semua. Jika tidak, nyalakan semua
+                          bool newState = !(showXAxisChart && showYAxisChart && showZAxisChart);
+                          showXAxisChart = newState;
+                          showYAxisChart = newState;
+                          showZAxisChart = newState;
+                        });
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blueGrey,
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                      ),
+                      child: Text(
+                        (showXAxisChart && showYAxisChart && showZAxisChart) 
+                            ? 'Disable All Charts' 
+                            : 'Enable All Charts',
+                        style: const TextStyle(fontSize: 16),
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -302,8 +428,8 @@ class _MyHomePageState extends State<MyHomePage> {
   
   LineChartData _buildLineChartData(int axisIndex, String title) {
     // Warna untuk setiap axis (raw dan filtered)
-    final List<Color> rawColors = [Colors.red, Colors.purple, Colors.blue];
-    final List<Color> filteredColors = [Colors.blue, Colors.green, Colors.orange];
+    final List<Color> rawColors = [Colors.red, Colors.green, Colors.blue];
+    final List<Color> filteredColors = [Colors.redAccent.shade100, Colors.green.shade200, Colors.blue.shade200];
     
     return LineChartData(
       gridData: const FlGridData(
@@ -320,24 +446,9 @@ class _MyHomePageState extends State<MyHomePage> {
         ),
         bottomTitles: AxisTitles(
           axisNameWidget: Text(title),
-          sideTitles: SideTitles(
+          sideTitles: const SideTitles(
             showTitles: true,
             reservedSize: 30,
-            getTitlesWidget: (value, meta) {
-              // Cek apakah indeks valid dan ada timestamp untuk indeks tersebut
-              if (value >= 0 && value < timestamps.length && value % 20 == 0) {
-                // Hanya tampilkan label setiap 20 data untuk mencegah terlalu padat
-                final time = timestamps[value.toInt()];
-                return Padding(
-                  padding: const EdgeInsets.only(top: 8.0),
-                  child: Text(
-                    '${time.hour}:${time.minute.toString().padLeft(2, '0')}:${time.second.toString().padLeft(2, '0')}',
-                    style: const TextStyle(fontSize: 10),
-                  ),
-                );
-              }
-              return const SizedBox.shrink(); // Tidak menampilkan label untuk semua titik
-            },
           ),
         ),
         topTitles: const AxisTitles(
